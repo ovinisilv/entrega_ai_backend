@@ -2,16 +2,28 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const admin = require('firebase-admin');
 
-// Inicializa o Firebase Admin (se não tiver sido inicializado)
 try {
   if (admin.apps.length === 0) {
-    const serviceAccount = require('../../serviceAccountKey.json');
+    // Tenta ler a chave da variável de ambiente primeiro (para produção no Render)
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
+    console.log("Firebase Admin inicializado via variável de ambiente.");
   }
 } catch (error) {
-  console.warn("Chave de serviço do Firebase (serviceAccountKey.json) não encontrada. As notificações não funcionarão.");
+  // Se falhar, tenta carregar o arquivo local (para desenvolvimento no seu PC)
+  try {
+    if (admin.apps.length === 0) {
+      const serviceAccountFile = require('../../serviceAccountKey.json');
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccountFile)
+      });
+      console.log("Firebase Admin inicializado via arquivo local.");
+    }
+  } catch (fileError) {
+     console.error("ERRO CRÍTICO: Nenhuma credencial do Firebase encontrada (nem variável de ambiente, nem arquivo). As notificações não funcionarão.", fileError);
+  }
 }
 
 
