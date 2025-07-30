@@ -32,6 +32,7 @@ model User {
   role       Role        @default(CLIENTE)
   balance    Float       @default(0)
   fcmToken   String?
+   pixKey     String?     // <-- ADICIONE ESTA LINHA
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   restaurant Restaurant?
@@ -73,6 +74,8 @@ model Order {
   id              String      @id @default(uuid())
   totalPrice      Float
   deliveryAddress String
+  deliveryDistance  Float? // <-- Distância em KM (opcional)
+  deliveryFee       Float? // <-- Taxa de entrega calculada (opcional)
   status          OrderStatus @default(PENDENTE)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -83,6 +86,7 @@ model Order {
   deliveryBy      User?       @relation("Deliveries", fields: [deliveryById], references: [id])
   deliveryById    String?
   items           OrderItem[]
+  
 }
 
 model OrderItem {

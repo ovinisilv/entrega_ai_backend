@@ -15,3 +15,22 @@ exports.updateFcmToken = async (req, res) => {
         res.status(500).json({ error: 'Erro ao atualizar FCM token.' });
     }
 };
+
+exports.updatePixKey = async (req, res) => {
+    const { pixKey } = req.body;
+    const userId = req.user.userId;
+
+    if (!pixKey) {
+        return res.status(400).json({ error: 'Chave PIX é obrigatória.' });
+    }
+
+    try {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { pixKey: pixKey },
+        });
+        res.status(200).json({ message: 'Chave PIX atualizada com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao atualizar a chave PIX.' });
+    }
+};

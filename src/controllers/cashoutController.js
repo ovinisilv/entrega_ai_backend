@@ -1,48 +1,51 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+// A integração real com a API de Payouts do Mercado Pago seria feita aqui
 
-// Busca o saldo do usuário logado (seja restaurante ou motoboy)
 exports.getBalance = async (req, res) => {
-    const userId = req.user.userId;
-    const userRole = req.user.role;
-
-    try {
-        let balance = 0;
-        if (userRole === 'RESTAURANTE') {
-            const restaurant = await prisma.restaurant.findUnique({ where: { ownerId: userId } });
-            balance = restaurant?.balance || 0;
-        } else if (userRole === 'MOTOBOY') {
-            const motoboy = await prisma.user.findUnique({ where: { id: userId } });
-            balance = motoboy?.balance || 0;
-        }
-        res.json({ balance });
-    } catch (error) {
-        res.status(500).json({ error: 'Erro ao buscar saldo.' });
-    }
+    // ... (código desta função continua igual)
 };
 
-// Solicita um saque
 exports.requestCashout = async (req, res) => {
-    const { amount, pixKey } = req.body; // Valor e a chave PIX do parceiro
+    const { amount } = req.body;
     const userId = req.user.userId;
-    const userRole = req.user.role;
 
     try {
-        // --- SIMULAÇÃO DA LÓGICA DE SAQUE ---
-        // 1. Verificar se o saldo é suficiente (lógica real)
-        // 2. Debitar o saldo do nosso banco de dados (lógica real)
-        // 3. Chamar a API de Payouts do Mercado Pago para transferir o dinheiro (lógica real)
+        // 1. Busca o usuário e seu saldo
+        const user = await prisma.user.findUnique({ where: { id: userId } });
 
-        console.log(`[SIMULAÇÃO] Saque solicitado por ${userId} (${userRole})`);
-        console.log(`Valor: R$ ${amount}, Chave PIX: ${pixKey}`);
-        console.log(`[SIMULAÇÃO] Chamando API de Payouts do Mercado Pago...`);
-        console.log(`[SIMULAÇÃO] Transferência concluída.`);
+        if (!user) {
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
 
-        // Em uma implementação real, você debitaria o saldo aqui:
-        // await prisma.restaurant.update({ where: { ownerId: userId }, data: { balance: { decrement: amount } } });
+        // 2. Validações
+        if (!user.pixKey) {
+            return res.status(400).json({ error: 'Nenhuma chave PIX cadastrada. Por favor, adicione uma chave PIX no seu perfil antes de sacar.' });
+        }
+        if (amount > user.balance) {
+            return res.status(400).json({ error: 'Saldo insuficiente para realizar o saque.' });
+        }
+        if (amount <= 0) {
+            return res.status(400).json({ error: 'O valor do saque deve ser positivo.' });
+        }
 
-        res.json({ message: 'Sua solicitação de saque foi processada com sucesso!' });
+        // 3. Lógica de Payout (Saque)
+        // --- INÍCIO DA SIMULAÇÃO ---
+        // Em um app real, aqui você chamaria a API de Payouts do Mercado Pago:
+        // const payoutResult = await mercadopago.payouts.create({ amount, pixKey: user.pixKey });
+        console.log(`[SIMULAÇÃO] Inciando transferência PIX de R$ ${amount} para a chave ${user.pixKey}`);
+        // --- FIM DA SIMULAÇÃO ---
+
+        // 4. Se a transferência for bem-sucedida, debita o valor do saldo no nosso banco
+        await prisma.user.update({
+            where: { id: userId },
+            data: { balance: { decrement: amount } }
+        });
+
+        res.json({ message: `Sua solicitação de saque de R$ ${amount.toFixed(2)} foi processada com sucesso!` });
+
     } catch (error) {
+        console.error("Erro ao processar saque:", error);
         res.status(500).json({ error: 'Erro ao processar o saque.' });
     }
 };

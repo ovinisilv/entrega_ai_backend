@@ -6,62 +6,65 @@ const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCE
 const payment = new Payment(client);
 
 exports.handlePaymentNotification = async (req, res) => {
-    // O Mercado Pago envia notificações sobre diferentes tópicos.
-    // Nós estamos interessados no tópico 'payment'.
-    if (req.body.topic === 'payment' || req.body.type === 'payment') {
-        const paymentId = req.body.data.id;
-        console.log(`Recebida notificação para o pagamento ID: ${paymentId}`);
+    // ... (o início da função continua igual, recebendo a notificação)
 
+    if (paymentStatus === 'approved') {
         try {
-            // 1. Busca os detalhes completos do pagamento na API do Mercado Pago
-            const paymentDetails = await payment.get({ id: paymentId });
+            const order = await prisma.order.findFirst({
+                where: { id: orderId, status: 'PENDENTE' }
+            });
 
-            const orderId = paymentDetails.external_reference;
-            const paymentStatus = paymentDetails.status;
+            if (order) {
+                // --- NOVA LÓGICA FINANCEIRA DETALHADA ---
 
-            console.log(`Status do pagamento: ${paymentStatus}, ID do Pedido: ${orderId}`);
+                // 1. Simular o cálculo da distância (no futuro, isso viria de uma API de mapas)
+                const simulatedDistance = Math.random() * 10; // Gera uma distância aleatória de 0 a 10 km
 
-            // 2. Verifica se o pagamento foi aprovado e se o pedido ainda está pendente
-            if (paymentStatus === 'approved') {
-                const order = await prisma.order.findFirst({
-                    where: { id: orderId, status: 'PENDENTE' }
+                // 2. Calcular a taxa de entrega com base na sua regra
+                const deliveryFee = simulatedDistance < 5 ? 5.00 : 8.00;
+
+                // 3. Atualizar o pedido com a distância e a taxa
+                const updatedOrder = await prisma.order.update({
+                    where: { id: orderId },
+                    data: {
+                        status: 'PAGO',
+                        deliveryDistance: simulatedDistance,
+                        deliveryFee: deliveryFee
+                    }
                 });
 
-                if (order) {
-                    // --- LÓGICA FINANCEIRA PRINCIPAL ---
+                // 4. Calcular os valores do split
+                const totalPaid = updatedOrder.totalPrice;
+                const platformFeePercentage = 0.04; // 4%
 
-                    // 3. Atualiza o status do nosso pedido para PAGO
-                    await prisma.order.update({
-                        where: { id: orderId },
-                        data: { status: 'PAGO' }
-                    });
+                // O valor base para o restaurante é o total pago menos a taxa do motoboy
+                const restaurantBaseValue = totalPaid - deliveryFee;
 
-                    // 4. Calcula as comissões e saldos
-                    const APP_COMMISSION_PERCENTAGE = 0.12; // Ex: 12% de comissão
-                    const DELIVERY_FEE = 7.00; // Ex: Taxa de entrega fixa para o motoboy
+                // A comissão do app é 4% do valor do restaurante
+                const appCommission = restaurantBaseValue * platformFeePercentage;
 
-                    // O valor que o restaurante recebe é o total menos a taxa de entrega
-                    const restaurantGrossValue = order.totalPrice - DELIVERY_FEE;
-                    const appCommission = restaurantGrossValue * APP_COMMISSION_PERCENTAGE;
-                    const restaurantNetValue = restaurantGrossValue - appCommission;
+                // O valor final do restaurante é o valor base menos a comissão
+                const restaurantNetAmount = restaurantBaseValue - appCommission;
 
-                    // 5. Credita os saldos no banco de dados
-                    // Usamos 'increment' para adicionar ao saldo existente de forma segura
-                    await prisma.restaurant.update({
-                        where: { id: order.restaurantId },
-                        data: { balance: { increment: restaurantNetValue } }
-                    });
+                // 5. Creditar os saldos no banco de dados
+                // (O saldo do motoboy será creditado quando ele aceitar e concluir a entrega)
+                await prisma.restaurant.update({
+                    where: { id: updatedOrder.restaurantId },
+                    data: { balance: { increment: restaurantNetAmount } }
+                });
 
-                    // O saldo do motoboy será creditado quando ele aceitar a entrega
-                    // (ou podemos creditar aqui, dependendo da regra de negócio)
-                    console.log(`Pedido ${orderId} processado. Restaurante creditado com R$ ${restaurantNetValue.toFixed(2)}.`);
-                }
+                console.log(`--- Processamento Financeiro do Pedido ${orderId} ---`);
+                console.log(`Total Pago pelo Cliente: R$ ${totalPaid.toFixed(2)}`);
+                console.log(`Distância Simulada: ${simulatedDistance.toFixed(2)} km`);
+                console.log(`Taxa de Entrega para o Motoboy: R$ ${deliveryFee.toFixed(2)}`);
+                console.log(`Valor Base do Restaurante: R$ ${restaurantBaseValue.toFixed(2)}`);
+                console.log(`Comissão do App (4%): R$ ${appCommission.toFixed(2)}`);
+                console.log(`Valor Líquido para o Restaurante: R$ ${restaurantNetAmount.toFixed(2)}`);
+                console.log(`-------------------------------------------------`);
             }
         } catch (error) {
-            console.error("Erro ao processar webhook do Mercado Pago:", error);
-            return res.status(500).send('Erro interno');
+            console.error("Erro ao processar webhook:", error);
         }
     }
-    // Responde ao Mercado Pago que a notificação foi recebida com sucesso
-    res.status(200).send();
+    res.status(200).send('Webhook recebido.');
 };
