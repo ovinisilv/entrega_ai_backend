@@ -93,3 +93,46 @@ exports.login = async (req, res) => {
     res.status(500).json({ error: 'Erro ao fazer login.', details: error.message });
   }
 };
+
+exports.googleSignIn = async (req, res) => {
+    const { email, name, role } = req.body; // O 'role' virá do app
+
+    if (!email || !name || !role) {
+        return res.status(400).json({ error: 'Dados do Google insuficientes.' });
+    }
+
+    try {
+        let user = await prisma.user.findUnique({ where: { email } });
+
+        // Se o usuário não existe, cria um novo
+        if (!user) {
+            // Para o Google Sign-In, não precisamos de senha no nosso banco
+            const randomPassword = Math.random().toString(36).slice(-8);
+            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+            user = await prisma.user.create({
+                data: {
+                    name,
+                    email,
+                    password: hashedPassword, // Salva uma senha aleatória
+                    role: role.toUpperCase(),
+                }
+            });
+        }
+
+        // --- Lógica de Login (similar à função de login normal) ---
+        if (SUPER_ADMIN_EMAILS.includes(user.email)) {
+            user.role = 'ADMIN';
+        }
+
+        const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
+          expiresIn: '7d',
+        });
+
+        const { password: _, ...userForResponse } = user;
+        res.json({ token, user: userForResponse });
+
+    } catch (error) {
+        res.status(500).json({ error: 'Erro no login com Google.' });
+    }
+};
