@@ -1,9 +1,27 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const admin = require('firebase-admin'); // Importa o Firebase Admin
+const admin = require('firebase-admin');
 
 exports.listAvailableDeliveries = async (req, res) => {
-    // ... (código desta função continua igual)
+    try {
+        const availableOrders = await prisma.order.findMany({
+            where: {
+                status: 'PRONTO_PARA_ENTREGA',
+                deliveryById: null
+            },
+            include: {
+                restaurant: {
+                    select: { name: true, address: true }
+                }
+            },
+            orderBy: {
+                createdAt: 'asc'
+            }
+        });
+        res.json(availableOrders);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao buscar entregas disponíveis.' });
+    }
 };
 
 exports.acceptDelivery = async (req, res) => {
@@ -37,8 +55,6 @@ exports.acceptDelivery = async (req, res) => {
                 console.error("Erro ao enviar notificação de coleta:", error);
             }
         }
-        // ------------------------------------
-
         res.json(updatedOrder);
     } catch (error) {
         res.status(500).json({ error: 'Erro ao aceitar entrega.' });
@@ -55,7 +71,7 @@ exports.updateDeliveryStatus = async (req, res) => {
             where: { id: id, deliveryById: motoboyId },
             include: { 
                 user: { select: { fcmToken: true } },
-                restaurant: { include: { owner: true } } // Inclui o dono do restaurante
+                restaurant: { include: { owner: true } }
             }
         });
 
@@ -75,13 +91,24 @@ exports.updateDeliveryStatus = async (req, res) => {
                 })
             ]);
             
-            // Notifica o cliente (lógica que já tínhamos)
-            if (order.user && order.user.fcmToken) { /* ... */ }
+            // Notifica o cliente
+            if (order.user && order.user.fcmToken) {
+                const clientMessage = {
+                    notification: {
+                        title: 'Seu pedido foi entregue! 🛵',
+                        body: `O seu pedido do restaurante ${order.restaurant.name} chegou. Bom apetite!`
+                    },
+                    token: order.user.fcmToken
+                };
+                try {
+                    await admin.messaging().send(clientMessage);
+                } catch (e) { console.error("Erro ao notificar cliente sobre entrega:", e); }
+            }
 
-            // --- NOTIFICAÇÃO: PEDIDO ENTREGUE ---
+            // Notifica o restaurante
             const owner = order.restaurant.owner;
             if (owner && owner.fcmToken) {
-                const message = {
+                const restaurantMessage = {
                     notification: {
                         title: 'Pedido Entregue!',
                         body: `A entrega do pedido #${order.id.substring(0, 8)} foi concluída com sucesso.`
@@ -89,17 +116,13 @@ exports.updateDeliveryStatus = async (req, res) => {
                     token: owner.fcmToken
                 };
                 try {
-                    await admin.messaging().send(message);
-                    console.log(`Notificação de entrega concluída enviada para o restaurante ${order.restaurant.name}.`);
-                } catch (error) {
-                    console.error("Erro ao enviar notificação de entrega concluída:", error);
-                }
+                    await admin.messaging().send(restaurantMessage);
+                } catch (e) { console.error("Erro ao notificar restaurante sobre entrega:", e); }
             }
-            // ------------------------------------
 
             res.json(updatedOrder);
 
-        } else {
+        } else { // Para outros status como 'EM_ROTA' (se o motoboy atualizar manualmente)
             const updatedOrder = await prisma.order.update({
                 where: { id: id },
                 data: { status: status }
