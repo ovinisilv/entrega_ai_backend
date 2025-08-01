@@ -75,14 +75,18 @@ exports.createOrderAndPreference = async (req, res) => {
         external_reference: order.id.toString(), // Boa prática: enviar como string
 
         payment_methods: {
-  excluded_payment_types: [
-    { "id": "ticket" }, // Boleto
-    { "id": "atm" }     // Caixas eletrônicos
-  ],
-  included_payment_methods: [
-    { "id": "pix" }
-  ],
-}
+          // Lista de tipos de pagamento que você quer EXCLUIR
+          excluded_payment_types: [
+            { "id": "ticket" } // Exclui Boleto e Lotérica
+          ],
+         
+             included_payment_methods: [
+                 { "id": "pix" }
+                         ],
+         
+          // Defina PIX como o método de pagamento padrão (opcional)
+          default_payment_method_id: "pix", 
+        },
 
         back_urls: {
           success: "entregaai://success",
