@@ -29,7 +29,6 @@ exports.createOrderAndPreference = async (req, res) => {
     const orderItemsData = items.map(item => {
       const dish = dishesFromDb.find(d => d.id === item.dishId);
       if (!dish) {
-        // Lança um erro que será capturado pelo bloco catch
         throw new Error(`Prato com ID ${item.dishId} não encontrado.`);
       }
       totalPrice += dish.price * item.quantity;
@@ -58,24 +57,28 @@ exports.createOrderAndPreference = async (req, res) => {
     const preference = new Preference(client);
     const result = await preference.create({
       body: {
-        // ### INÍCIO DA CORREÇÃO ###
         items: items.map(item => {
           const dish = dishesFromDb.find(d => d.id === item.dishId);
           return {
             id: dish.id,
-            title: dish.name, // Assumindo que seu modelo 'dish' tem o campo 'name'
-            description: dish.description, // Assumindo que seu modelo 'dish' tem o campo 'description'
+            title: dish.name,
+            description: dish.description || '',
             quantity: item.quantity,
-            currency_id: 'BRL', // Moeda Real Brasileiro
-            unit_price: parseFloat(dish.price), // Garante que o preço seja um número
+            currency_id: 'BRL',
+            unit_price: parseFloat(dish.price),
           };
         }),
-        // ### FIM DA CORREÇÃO ###
 
-        external_reference: order.id.toString(), // Boa prática: enviar como string
-
+        external_reference: order.id.toString(),
+        
         payment_methods: {
-          default_payment_method_id: "pix", 
+          excluded_payment_types: [
+            { id: "ticket" }, // Boleto
+            { id: "atm" },     // Caixa eletrônico
+            { id: "debit_card" } // Cartão de débito
+          ],
+          default_payment_method_id: "pix",
+          installments: 1,
         },
 
         back_urls: {
@@ -84,19 +87,32 @@ exports.createOrderAndPreference = async (req, res) => {
           pending: "entregaai://pending",
         },
         auto_return: "approved",
+        
+        // Configurações específicas para PIX
+        payer: {
+          email: req.user.email, // O email do usuário logado
+        },
+        payment_type_id: "pix",
+        date_of_expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos para pagar
       },
     });
 
-    // 5. Enviar a URL de checkout (init_point) de volta para o app
-    res.status(201).json({ checkoutUrl: result.init_point, orderId: order.id });
+    // 5. Enviar a URL de checkout (init_point) e dados do PIX de volta para o app
+    res.status(201).json({ 
+      checkoutUrl: result.init_point, 
+      orderId: order.id,
+      pixData: result.point_of_interaction?.transaction_data // Dados específicos do PIX
+    });
 
   } catch (error) {
     console.error('Erro detalhado ao criar pedido e preferência:', error);
-    // Retorna uma mensagem de erro mais específica se o prato não for encontrado
     if (error.message.includes("Prato com ID")) {
-        return res.status(400).json({ error: error.message });
+      return res.status(400).json({ error: error.message });
     }
-    res.status(500).json({ error: 'Erro ao processar o pedido.' });
+    res.status(500).json({ 
+      error: 'Erro ao processar o pedido.',
+      details: error.message 
+    });
   }
 };
 
@@ -104,32 +120,35 @@ exports.createOrderAndPreference = async (req, res) => {
  * Busca os detalhes de um pedido específico.
  */
 exports.getOrderDetails = async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user.userId;
+  const { id } = req.params;
+  const userId = req.user.userId;
 
-    try {
-        const order = await prisma.order.findFirst({
-            where: {
-                id: id,
-                OR: [
-                    { userId: userId },
-                    { deliveryById: userId }
-                ]
-            },
-            include: {
-                items: { include: { dish: true } },
-                user: { select: { name: true } },
-                restaurant: { select: { name: true, address: true } },
-                deliveryBy: { select: { name: true } },
-            }
-        });
+  try {
+    const order = await prisma.order.findFirst({
+      where: {
+        id: id,
+        OR: [
+          { userId: userId },
+          { deliveryById: userId }
+        ]
+      },
+      include: {
+        items: { include: { dish: true } },
+        user: { select: { name: true, email: true } },
+        restaurant: { select: { name: true, address: true } },
+        deliveryBy: { select: { name: true } },
+      }
+    });
 
-        if (!order) {
-            return res.status(404).json({ error: 'Pedido não encontrado ou acesso negado.' });
-        }
-        res.json(order);
-    } catch (error) {
-        console.error('Erro ao buscar detalhes do pedido:', error);
-        res.status(500).json({ error: 'Erro ao buscar detalhes do pedido.' });
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado ou acesso negado.' });
     }
+    res.json(order);
+  } catch (error) {
+    console.error('Erro ao buscar detalhes do pedido:', error);
+    res.status(500).json({ 
+      error: 'Erro ao buscar detalhes do pedido.',
+      details: error.message 
+    });
+  }
 };
