@@ -58,41 +58,30 @@ exports.createOrderAndPreference = async (req, res) => {
     const preference = new Preference(client);
     const result = await preference.create({
       body: {
-        // ### INÍCIO DA CORREÇÃO ###
         items: items.map(item => {
-          const dish = dishesFromDb.find(d => d.id === item.dishId);
-          return {
-            id: dish.id,
-            title: dish.name, // Assumindo que seu modelo 'dish' tem o campo 'name'
-            description: dish.description, // Assumindo que seu modelo 'dish' tem o campo 'description'
-            quantity: item.quantity,
-            currency_id: 'BRL', // Moeda Real Brasileiro
-            unit_price: parseFloat(dish.price), // Garante que o preço seja um número
-          };
+            // ... (mapeamento dos itens)
         }),
-        // ### FIM DA CORREÇÃO ###
-
-        external_reference: order.id.toString(), // Boa prática: enviar como string
-
+        external_reference: order.id,
+        
+        // --- ADICIONE ESTA SEÇÃO PARA CONTROLAR OS PAGAMENTOS ---
         payment_methods: {
-          // Lista de tipos de pagamento que você quer EXCLUIR
           excluded_payment_types: [
-            { "id": "ticket" } // Exclui Boleto e Lotérica
-          ],
-         
-          // Defina PIX como o método de pagamento padrão (opcional)
-          default_payment_method_id: "pix", 
+            { "id": "ticket" } // "ticket" é o ID para boletos no Mercado Pago
+          ]
+          // Não precisamos incluir o PIX aqui, ele já aparece por padrão
+          // se sua conta estiver habilitada.
         },
+        // ----------------------------------------------------
 
         back_urls: {
-          success: "entregaai://success",
-          failure: "entregaai://failure",
-          pending: "entregaai://pending",
+            success: "entregaai://success",
+            failure: "entregaai://failure",
+            pending: "entregaai://pending",
         },
         auto_return: "approved",
       },
     });
-
+    
     // 5. Enviar a URL de checkout (init_point) de volta para o app
     res.status(201).json({ checkoutUrl: result.init_point, orderId: order.id });
 
