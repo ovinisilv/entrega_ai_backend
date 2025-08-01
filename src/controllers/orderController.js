@@ -57,22 +57,26 @@ exports.createOrderAndPreference = async (req, res) => {
     const result = await preference.create({
       body: {
         items: items.map(item => {
-            const dish = dishesFromDb.find(d => d.id === item.dishId);
-            return {
-                id: dish.id,
-                title: dish.name,
-                quantity: item.quantity,
-                unit_price: dish.price,
-            };
+            // ... (mapeamento dos itens)
         }),
         external_reference: order.id,
-        // URLs para redirecionar o usuário após o pagamento
+        
+        // --- ADICIONE ESTA SEÇÃO PARA CONTROLAR OS PAGAMENTOS ---
+        payment_methods: {
+          excluded_payment_types: [
+            { "id": "ticket" } // "ticket" é o ID para boletos no Mercado Pago
+          ]
+          // Não precisamos incluir o PIX aqui, ele já aparece por padrão
+          // se sua conta estiver habilitada.
+        },
+        // ----------------------------------------------------
+
         back_urls: {
-            success: "entregaai://success", // URLs customizadas para o app mobile
+            success: "entregaai://success",
             failure: "entregaai://failure",
             pending: "entregaai://pending",
         },
-        auto_return: "approved", // Redireciona automaticamente em caso de sucesso
+        auto_return: "approved",
       },
     });
 
