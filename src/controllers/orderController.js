@@ -80,10 +80,6 @@ exports.createOrderAndPreference = async (req, res) => {
             { "id": "ticket" } // Exclui Boleto e Lotérica
           ],
          
-             included_payment_methods: [
-                 { "id": "pix" }
-                         ],
-         
           // Defina PIX como o método de pagamento padrão (opcional)
           default_payment_method_id: "pix", 
         },
