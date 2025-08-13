@@ -39,8 +39,8 @@ model User {
   role       Role        @default(CLIENTE)
   balance    Float       @default(0)
   fcmToken   String?
-   pixKey     String?     // <-- ADICIONE ESTA LINHA
-     pixKeyType PixKeyType? // <-- ADICIONE ESTE CAMPO
+  pixKey     String?     // <-- ADICIONE ESTA LINHA
+  pixKeyType PixKeyType? // <-- ADICIONE ESTE CAMPO
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   restaurant Restaurant?
