@@ -110,7 +110,7 @@ exports.createOrderAndPreference = async (req, res) => {
     // Retorna a resposta com os dados necessários
     res.status(201).json({
       success: true,
-      checkoutUrl: result.sandbox_init_point || result.init_point,
+      checkoutUrl: result.result.init_point,
       orderId: order.id,
       orderDetails: {
         total: order.totalPrice,
