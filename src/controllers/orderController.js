@@ -43,6 +43,13 @@ exports.createOrderAndPreference = async (req, res) => {
         restaurantId,
         items: { create: orderItemsData },
       },
+      include: {
+        restaurant: {
+          select: {
+            name: true
+          }
+        }
+      }
     });
 
     // Prepara os itens para o Mercado Pago (AQUI ESTAVA O ERRO - FALTANDO ESTA PARTE)
@@ -57,35 +64,28 @@ exports.createOrderAndPreference = async (req, res) => {
       };
     });
 
-
     // Configuração do Mercado Pago
-     const preference = new Preference(client);
-    const preferenceData = {
-      items: mpItems,
-      payment_methods: {
-        excluded_payment_types: [
-          { id: 'ticket' }, // Remove boleto
-          { id: 'atm' }     // Remove caixas eletrônicos (opcional)
-        ],
-        installments: 1, // Número máximo de parcelas
-        default_installments: 1 // Parcelamento padrão
+    const preference = new Preference(client);
+    const result = await preference.create({
+      body: {
+        items: mpItems,
+        payment_methods: {
+          excluded_payment_types: [
+            { id: 'ticket' } // Remove boleto
+          ],
+          installments: 1
+        },
+        external_reference: order.id.toString(),
+        back_urls: {
+          success: "https://seusite.com/success",
+          failure: "https://seusite.com/failure",
+          pending: "https://seusite.com/pending",
+        },
+        auto_return: "approved",
       },
-      external_reference: order.id.toString(),
-      back_urls: {
-        success: `${process.env.APP_DEEP_LINK}/success`,
-        failure: `${process.env.APP_DEEP_LINK}/failure`,
-        pending: `${process.env.APP_DEEP_LINK}/pending`,
-      },
-      auto_return: "approved",
-      notification_url: process.env.MP_WEBHOOK_URL || null,
-      statement_descriptor: `EntregaAi ${order.restaurant.name.substring(0, 12)}`,
-    };
+    });
 
-    // Cria a preferência no Mercado Pago
-    const result = await preference.create({ body: preferenceData });
-
-
-    // Retorna só o necessário
+    // Retorna a resposta
     res.status(200).json({
       success: true,
       checkoutUrl: result.init_point,
@@ -101,7 +101,7 @@ exports.createOrderAndPreference = async (req, res) => {
   }
 };
 
-// Get order details (mantido igual)
+// Get order details
 exports.getOrderDetails = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.userId;
