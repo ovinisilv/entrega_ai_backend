@@ -45,6 +45,19 @@ exports.createOrderAndPreference = async (req, res) => {
       },
     });
 
+    // Prepara os itens para o Mercado Pago (AQUI ESTAVA O ERRO - FALTANDO ESTA PARTE)
+    const mpItems = items.map(item => {
+      const dish = dishesFromDb.find(d => d.id === item.dishId);
+      return {
+        id: dish.id,
+        title: dish.name.substring(0, 50),
+        quantity: item.quantity,
+        currency_id: 'BRL',
+        unit_price: dish.price,
+      };
+    });
+
+
     // Configuração do Mercado Pago
      const preference = new Preference(client);
     const preferenceData = {
