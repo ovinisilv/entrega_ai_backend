@@ -45,18 +45,32 @@ exports.createOrderAndPreference = async (req, res) => {
       },
     });
 
-    // Configuração SIMPLES do Mercado Pago
+    // Configuração do Mercado Pago
     const preference = new Preference(client);
-    const mpItems = items.map(item => {
-      const dish = dishesFromDb.find(d => d.id === item.dishId);
-      return {
-        id: dish.id,
-        title: dish.name.substring(0, 50), // Limita o tamanho
-        quantity: item.quantity,
-        currency_id: 'BRL',
-        unit_price: parseFloat(dish.price.toFixed(2)),
-      };
-    });
+const mpItems = items.map(item => {
+  const dish = dishesFromDb.find(d => d.id === item.dishId);
+  return {
+    id: dish.id,
+    title: dish.name.substring(0, 50), // Limita o tamanho
+    quantity: item.quantity,
+    currency_id: 'BRL',
+    unit_price: parseFloat(dish.price.toFixed(2)),
+  };
+});
+
+// Configuração da preferência com exclusão do boleto
+const preferenceData = {
+  items: mpItems,
+  payment_methods: {
+    excluded_payment_types: [
+      { id: 'ticket' } // Isso remove boleto
+    ],
+    excluded_payment_methods: [
+      // Pode adicionar outros métodos para excluir se necessário
+    ],
+    installments: 12 // Número máximo de parcelas permitidas
+  }
+};
 
     const result = await preference.create({
       body: {
