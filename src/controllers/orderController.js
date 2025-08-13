@@ -27,7 +27,7 @@ exports.createOrderAndPreference = async (req, res) => {
     // Verifica se todos os pratos foram encontrados
     if (dishesFromDb.length !== items.length) {
       const missingDishes = items.filter(item => 
-        !dishesFromDb.some(dish => dish.id === item.dishId)
+        !dishesFromDb.some(dish => dish.id === item.dishId))
         .map(item => item.dishId);
       return res.status(404).json({ 
         error: 'Alguns pratos não foram encontrados',
