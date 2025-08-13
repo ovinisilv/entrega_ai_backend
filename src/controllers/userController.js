@@ -17,21 +17,28 @@ exports.updateFcmToken = async (req, res) => {
 };
 
 exports.updatePixKey = async (req, res) => {
-    const { pixKey } = req.body;
+    // Agora recebemos o tipo e o valor da chave
+    const { pixKey, pixKeyType } = req.body;
     const userId = req.user.userId;
 
-    console.log(`Tentando atualizar a chave PIX para o usuário: ${userId}`);
-    if (!pixKey) {
-        return res.status(400).json({ error: 'Chave PIX é obrigatória.' });
+    if (!pixKey || !pixKeyType) {
+        return res.status(400).json({ error: 'Chave PIX e tipo da chave são obrigatórios.' });
+    }
+
+    // Validação simples do tipo da chave
+    if (!['CPF_CNPJ', 'EMAIL', 'CELULAR', 'ALEATORIA'].includes(pixKeyType)) {
+        return res.status(400).json({ error: 'Tipo de chave PIX inválido.' });
     }
 
     try {
-        const updatedUser = await prisma.user.update({
+        await prisma.user.update({
             where: { id: userId },
-            data: { pixKey: pixKey },
+            data: { 
+                pixKey: pixKey,
+                pixKeyType: pixKeyType, // Salva o tipo
+            },
         });
-        console.log(`Chave PIX para ${userId} atualizada com sucesso.`);
-        res.status(200).json({ message: 'Chave PIX atualizada com sucesso.', user: updatedUser });
+        res.status(200).json({ message: 'Chave PIX atualizada com sucesso.' });
     } catch (error) {
         console.error(`Erro ao atualizar a chave PIX para o usuário ${userId}:`, error);
         res.status(500).json({ error: 'Erro ao atualizar a chave PIX.' });
