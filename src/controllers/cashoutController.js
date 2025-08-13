@@ -4,38 +4,36 @@ const prisma = new PrismaClient();
 exports.getBalance = async (req, res) => {
     const userId = req.user.userId;
     const userRole = req.user.role;
-
-    console.log(`[Carteira] Iniciando busca de saldo para UserID: ${userId}, Perfil: ${userRole}`);
+    console.log(`Buscando saldo e PIX para o usuário ${userId} com perfil ${userRole}`);
 
     try {
         let balance = 0;
-        if (userRole === 'RESTAURANTE') {
-            const restaurant = await prisma.restaurant.findUnique({ where: { ownerId: userId } });
-            if (restaurant) {
-                balance = restaurant.balance;
-                console.log(`[Carteira] Saldo do restaurante encontrado: ${balance}`);
-            } else {
-                console.warn(`[Carteira] Nenhum restaurante encontrado para o dono com ID: ${userId}`);
-            }
-        } else if (userRole === 'MOTOBOY' || userRole === 'ADMIN') {
-            const user = await prisma.user.findUnique({ where: { id: userId } });
-            if (user) {
-                balance = user.balance;
-                console.log(`[Carteira] Saldo do usuário (${userRole}) encontrado: ${balance}`);
-            } else {
-                 console.warn(`[Carteira] Nenhum usuário encontrado com ID: ${userId}`);
-            }
-        } else {
-            console.log(`[Carteira] Perfil ${userRole} não possui saldo. Retornando 0.`);
+        let pixKey = null;
+
+        // Busca o usuário para pegar a chave PIX
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (user) {
+            pixKey = user.pixKey;
         }
 
-        res.json({ balance });
+        // Busca o saldo com base no perfil
+        if (userRole === 'RESTAURANTE') {
+            const restaurant = await prisma.restaurant.findUnique({ where: { ownerId: userId } });
+            balance = restaurant?.balance || 0;
+        } else if (userRole === 'MOTOBOY' || userRole === 'ADMIN') {
+            balance = user?.balance || 0;
+        }
+
+        console.log(`Saldo encontrado: ${balance}, Chave PIX: ${pixKey}`);
+        // Retorna o saldo e a chave PIX juntos
+        res.json({ balance, pixKey });
 
     } catch (error) {
         console.error("[Carteira] ERRO CRÍTICO ao buscar saldo:", error);
         res.status(500).json({ error: 'Erro interno ao buscar saldo.' });
     }
 };
+
 
 exports.requestCashout = async (req, res) => {
     const { amount } = req.body;
