@@ -33,9 +33,7 @@ exports.createOrderAndPreference = async (req, res) => {
       };
     });
 
-     const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
-
-
+    const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
 
     // Cria o pedido no banco
     const order = await prisma.order.create({
@@ -57,7 +55,7 @@ exports.createOrderAndPreference = async (req, res) => {
       }
     });
 
-    // Prepara os itens para o Mercado Pago (AQUI ESTAVA O ERRO - FALTANDO ESTA PARTE)
+    // Prepara os itens para o Mercado Pago
     const mpItems = items.map(item => {
       const dish = dishesFromDb.find(d => d.id === item.dishId);
       return {
@@ -68,20 +66,6 @@ exports.createOrderAndPreference = async (req, res) => {
         unit_price: dish.price,
       };
     });
-
-    exports.getMyOrderHistory = async (req, res) => {
-    const userId = req.user.userId;
-    try {
-        const orders = await prisma.order.findMany({
-            where: { userId: userId },
-            orderBy: { createdAt: 'desc' },
-            include: { restaurant: { select: { name: true } } }
-        });
-        res.json(orders);
-    } catch (error) {
-        res.status(500).json({ error: 'Erro ao buscar histórico de pedidos.' });
-    }
-};
 
     // Configuração do Mercado Pago
     const preference = new Preference(client);
@@ -120,7 +104,20 @@ exports.createOrderAndPreference = async (req, res) => {
   }
 };
 
-// Get order details
+exports.getMyOrderHistory = async (req, res) => {
+  const userId = req.user.userId;
+  try {
+    const orders = await prisma.order.findMany({
+      where: { userId: userId },
+      orderBy: { createdAt: 'desc' },
+      include: { restaurant: { select: { name: true } } }
+    });
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar histórico de pedidos.' });
+  }
+};
+
 exports.getOrderDetails = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.userId;
