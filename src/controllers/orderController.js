@@ -33,11 +33,16 @@ exports.createOrderAndPreference = async (req, res) => {
       };
     });
 
+     const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+
+
     // Cria o pedido no banco
     const order = await prisma.order.create({
       data: {
         totalPrice,
         deliveryAddress,
+        deliveryConfirmationCode: confirmationCode,
         status: 'PENDENTE',
         userId,
         restaurantId,

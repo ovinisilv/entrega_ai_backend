@@ -24,6 +24,46 @@ exports.listAvailableDeliveries = async (req, res) => {
     }
 };
 
+exports.confirmDelivery = async (req, res) => {
+    const { id } = req.params; // ID do Pedido
+    const { code } = req.body; // Código enviado pelo motoboy
+    const motoboyId = req.user.userId;
+
+    try {
+        const order = await prisma.order.findFirst({
+            where: { id: id, deliveryById: motoboyId }
+        });
+
+        if (!order) {
+            return res.status(404).json({ error: 'Entrega não encontrada ou não pertence a você.' });
+        }
+
+        if (order.deliveryConfirmationCode !== code) {
+            return res.status(400).json({ error: 'Código de confirmação incorreto.' });
+        }
+
+        // Se o código estiver correto, executa a lógica de finalizar a entrega
+        const [updatedOrder] = await prisma.$transaction([
+            prisma.order.update({
+                where: { id: id },
+                data: { status: 'ENTREGUE' }
+            }),
+            prisma.user.update({
+                where: { id: motoboyId },
+                data: { balance: { increment: order.deliveryFee } }
+            })
+        ]);
+
+        // TODO: Notificar o cliente e o restaurante que a entrega foi concluída
+
+        res.json({ message: 'Entrega confirmada com sucesso!', order: updatedOrder });
+
+    } catch (error) {
+        console.error("Erro ao confirmar entrega:", error);
+        res.status(500).json({ error: 'Erro ao confirmar a entrega.' });
+    }
+};
+
 exports.acceptDelivery = async (req, res) => {
     const { id } = req.params;
     const motoboyId = req.user.userId;
