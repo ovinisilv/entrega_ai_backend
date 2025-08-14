@@ -24,6 +24,20 @@ exports.listAvailableDeliveries = async (req, res) => {
     }
 };
 
+exports.getDeliveryHistory = async (req, res) => {
+    const motoboyId = req.user.userId;
+    try {
+        const deliveries = await prisma.order.findMany({
+            where: { deliveryById: motoboyId },
+            orderBy: { updatedAt: 'desc' },
+            include: { restaurant: { select: { name: true } } }
+        });
+        res.json(deliveries);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao buscar histórico de entregas.' });
+    }
+};
+
 exports.confirmDelivery = async (req, res) => {
     const { id } = req.params; // ID do Pedido
     const { code } = req.body; // Código enviado pelo motoboy

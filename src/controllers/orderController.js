@@ -69,6 +69,20 @@ exports.createOrderAndPreference = async (req, res) => {
       };
     });
 
+    exports.getMyOrderHistory = async (req, res) => {
+    const userId = req.user.userId;
+    try {
+        const orders = await prisma.order.findMany({
+            where: { userId: userId },
+            orderBy: { createdAt: 'desc' },
+            include: { restaurant: { select: { name: true } } }
+        });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao buscar histórico de pedidos.' });
+    }
+};
+
     // Configuração do Mercado Pago
     const preference = new Preference(client);
     const result = await preference.create({

@@ -42,6 +42,22 @@ exports.listActiveOrders = async (req, res) => {
     }
 };
 
+exports.getOrderHistory = async (req, res) => {
+    try {
+        const restaurant = await prisma.restaurant.findUnique({ where: { ownerId: req.user.userId } });
+        if (!restaurant) return res.status(404).json({ error: 'Restaurante não encontrado.' });
+
+        const orders = await prisma.order.findMany({
+            where: { restaurantId: restaurant.id },
+            orderBy: { createdAt: 'desc' },
+            include: { user: { select: { name: true } } }
+        });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao buscar histórico de pedidos do restaurante.' });
+    }
+};
+
 // Atualiza o status de um pedido
 exports.updateOrderStatus = async (req, res) => {
     const { id } = req.params; // ID do Pedido
