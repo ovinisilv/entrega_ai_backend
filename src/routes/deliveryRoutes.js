@@ -10,6 +10,6 @@ router.get('/available', deliveryController.listAvailableDeliveries);
 router.put('/:id/accept', deliveryController.acceptDelivery);
 router.put('/:id/status', deliveryController.updateDeliveryStatus);
 router.post('/:id/confirm', deliveryController.confirmDelivery);
-router.get('/api/orders/my-history', deliveryController.getDeliveryHistory);
+router.get('/my-history', deliveryController.getDeliveryHistory);
 
 module.exports = router;
