@@ -36,7 +36,7 @@ router.delete('/dishes/:id', protect, dishController.deleteDish);
 // --- Rotas de Pedidos ---
 router.get('/orders/active', protect, orderController.listActiveOrders);
 router.put('/orders/:id/status', protect, orderController.updateOrderStatus);
-router.get('/orders/history', protect, orderController.getOrderHistory); // <-- ROTA NOVA
+router.get('/api/orders/my-history', protect, orderController.getOrderHistory); // <-- ROTA NOVA
 
 // --- ROTA DE RELATÓRIOS ---
 router.get('/reports/summary', protect, reportsController.getRestaurantSummary);
