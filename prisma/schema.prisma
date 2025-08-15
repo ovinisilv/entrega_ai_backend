@@ -46,7 +46,6 @@ model User {
   restaurant Restaurant?
   orders     Order[]
   deliveries Order[]     @relation("Deliveries")
-  role       Role        @default(CLIENTE)
   isApproved Boolean     @default(true) // Aprovado por padrão, exceto para motoboys
 }
 
