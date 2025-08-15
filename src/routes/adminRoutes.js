@@ -22,4 +22,8 @@ router.post('/notifications/send-to-all', adminController.sendNotificationToCust
 //ROTA DE REMOÇÃO
 router.delete('/restaurantes/:id', adminController.deleteRestaurant);
 
+// --- NOVAS ROTAS DE GESTÃO DE USUÁRIOS ---
+router.get('/users', adminController.listAllUsers);
+router.put('/motoboys/:id/approve', adminController.approveMotoboy);
+
 module.exports = router;

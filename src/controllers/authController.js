@@ -30,6 +30,7 @@ exports.register = async (req, res) => {
         email: lowerCaseEmail, // Salva o email em minúsculas
         password: hashedPassword,
         role,
+        isApproved: role === 'MOTOBOY' ? false : true,
       },
     });
 
@@ -44,6 +45,9 @@ exports.register = async (req, res) => {
       });
     }
     
+    
+
+
     const { password: _, ...userWithoutPassword } = user;
     res.status(201).json(userWithoutPassword);
   } catch (error) {

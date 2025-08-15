@@ -26,6 +26,29 @@ try {
   }
 }
 
+exports.listAllUsers = async (req, res) => {
+    try {
+        const users = await prisma.user.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao listar usuários.' });
+    }
+};
+
+exports.approveMotoboy = async (req, res) => {
+    const { id } = req.params; // ID do usuário motoboy
+    try {
+        await prisma.user.update({
+            where: { id: id, role: 'MOTOBOY' },
+            data: { isApproved: true }
+        });
+        res.status(200).json({ message: 'Motoboy aprovado com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao aprovar motoboy.' });
+    }
+};
 
 /**
  * Busca as estatísticas gerais da plataforma para o dashboard do admin.
