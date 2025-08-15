@@ -2,9 +2,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const admin = require('firebase-admin');
 
+// Inicialização do Firebase Admin (mantido igual)
 try {
   if (admin.apps.length === 0) {
-    // Tenta ler a chave da variável de ambiente primeiro (para produção no Render)
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
@@ -12,7 +12,6 @@ try {
     console.log("Firebase Admin inicializado via variável de ambiente.");
   }
 } catch (error) {
-  // Se falhar, tenta carregar o arquivo local (para desenvolvimento no seu PC)
   try {
     if (admin.apps.length === 0) {
       const serviceAccountFile = require('../../serviceAccountKey.json');
@@ -22,7 +21,7 @@ try {
       console.log("Firebase Admin inicializado via arquivo local.");
     }
   } catch (fileError) {
-     console.error("ERRO CRÍTICO: Nenhuma credencial do Firebase encontrada (nem variável de ambiente, nem arquivo). As notificações não funcionarão.", fileError);
+     console.error("ERRO CRÍTICO: Nenhuma credencial do Firebase encontrada.", fileError);
   }
 }
 
@@ -38,7 +37,7 @@ exports.listAllUsers = async (req, res) => {
 };
 
 exports.approveMotoboy = async (req, res) => {
-    const { id } = req.params; // ID do usuário motoboy
+    const { id } = req.params;
     try {
         await prisma.user.update({
             where: { id: id, role: 'MOTOBOY' },
@@ -51,32 +50,87 @@ exports.approveMotoboy = async (req, res) => {
 };
 
 /**
- * Busca as estatísticas gerais da plataforma para o dashboard do admin.
+ * Busca as estatísticas completas da plataforma para o dashboard do admin
+ * Agora incluindo as novas métricas financeiras e pedidos por restaurante
  */
 exports.getDashboardStats = async (req, res) => {
   try {
-    const totalUsers = await prisma.user.count();
-    const totalRestaurants = await prisma.restaurant.count();
-    const pendingRestaurants = await prisma.restaurant.count({
-      where: { isApproved: false }
-    });
-    const totalOrders = await prisma.order.count();
+    // Estatísticas básicas
+    const [
+      totalUsers, 
+      totalRestaurants, 
+      pendingRestaurants, 
+      totalOrders,
+      completedOrders,
+      financialStats,
+      motoboyStats
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.restaurant.count({ where: { isApproved: true } }),
+      prisma.restaurant.count({ where: { isApproved: false } }),
+      prisma.order.count(),
+      prisma.order.count({ where: { status: 'ENTREGUE' } }),
+      prisma.order.aggregate({
+        _sum: {
+          totalPrice: true,
+          deliveryFee: true
+        },
+        where: {
+          status: 'ENTREGUE'
+        }
+      }),
+      prisma.user.aggregate({
+        _count: {
+          id: true
+        },
+        where: {
+          role: 'MOTOBOY',
+          isApproved: true
+        }
+      })
+    ]);
+
+    // Calcula a média de pedidos por restaurante (evitando divisão por zero)
+    const ordersPerRestaurant = totalRestaurants > 0 
+      ? Math.round(completedOrders / totalRestaurants) 
+      : 0;
+
+    // Calcula o valor médio por pedido entregue
+    const averageOrderValue = completedOrders > 0
+      ? (financialStats._sum.totalPrice / completedOrders).toFixed(2)
+      : 0;
 
     res.json({
+      // Estatísticas básicas
       totalUsers,
       totalRestaurants,
       pendingRestaurants,
-      totalOrders
+      totalOrders,
+      completedOrders,
+      
+      // Novas métricas financeiras
+      ordersPerRestaurant,
+      totalRestaurantValue: financialStats._sum.totalPrice || 0,
+      totalDeliveryValue: financialStats._sum.deliveryFee || 0,
+      averageOrderValue: parseFloat(averageOrderValue),
+      
+      // Estatísticas de motoboys
+      activeMotoboys: motoboyStats._count.id || 0,
+      
+      // Taxa de conversão (pedidos completos vs totais)
+      completionRate: totalOrders > 0 
+        ? ((completedOrders / totalOrders) * 100).toFixed(2) + '%'
+        : '0%'
     });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar estatísticas.' });
+    console.error('Erro ao buscar estatísticas:', error);
+    res.status(500).json({ 
+      error: 'Erro ao buscar estatísticas.',
+      details: error.message 
+    });
   }
 };
 
-
-/**
- * Lista todos os restaurantes cadastrados na plataforma.
- */
 exports.listRestaurants = async (req, res) => {
   try {
     const restaurants = await prisma.restaurant.findMany({
@@ -88,10 +142,6 @@ exports.listRestaurants = async (req, res) => {
   }
 };
 
-
-/**
- * Aprova um restaurante pendente.
- */
 exports.approveRestaurant = async (req, res) => {
   const { id } = req.params;
   try {
@@ -105,10 +155,6 @@ exports.approveRestaurant = async (req, res) => {
   }
 };
 
-
-/**
- * Deleta um restaurante. O banco de dados se encarrega de deletar os dados associados.
- */
 exports.deleteRestaurant = async (req, res) => {
   const { id } = req.params;
   try {
@@ -122,10 +168,6 @@ exports.deleteRestaurant = async (req, res) => {
   }
 };
 
-
-/**
- * Envia uma notificação para todos os clientes.
- */
 exports.sendNotificationToCustomers = async (req, res) => {
   const { title, body } = req.body;
 
