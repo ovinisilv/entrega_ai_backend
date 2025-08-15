@@ -14,44 +14,57 @@ exports.register = async (req, res) => {
   const { name, email, password, role } = req.body;
 
   try {
-    // Converte o email para minúsculas antes de salvar para garantir consistência
+    // Normaliza o email
     const lowerCaseEmail = email.toLowerCase();
 
-    const existingUser = await prisma.user.findUnique({ where: { email: lowerCaseEmail } });
+    // Verifica se usuário já existe
+    const existingUser = await prisma.user.findUnique({ 
+      where: { email: lowerCaseEmail } 
+    });
+    
     if (existingUser) {
       return res.status(400).json({ error: 'Email já está em uso.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // Cria o usuário com os campos do schema
     const user = await prisma.user.create({
       data: {
         name,
-        email: lowerCaseEmail, // Salva o email em minúsculas
-        password: hashedPassword,
+        email: lowerCaseEmail,
+        password: await bcrypt.hash(password, 10),
         role,
-        isApproved: role === 'MOTOBOY' ? false : true,
+        isApproved: role === 'MOTOBOY' ? false : true, // Motoboys não são aprovados automaticamente
+        balance: 0, // Valor padrão conforme schema
+        // pixKey e pixKeyType são opcionais (não incluídos no registro inicial)
       },
     });
 
+    // Cria restaurante se for dono
     if (role === 'RESTAURANTE') {
       await prisma.restaurant.create({
         data: {
           name: `${name}'s Restaurant`,
           address: 'Endereço pendente',
           ownerId: user.id,
-          isApproved: false,
+          isApproved: false, // Restaurantes precisam ser aprovados
         }
       });
     }
-    
-    
 
+    return res.status(201).json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isApproved: user.isApproved
+    });
 
-    const { password: _, ...userWithoutPassword } = user;
-    res.status(201).json(userWithoutPassword);
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao registrar usuário.', details: error.message });
+    console.error("Erro no registro:", error);
+    return res.status(500).json({ 
+      error: "Falha ao registrar usuário",
+      details: process.env.NODE_ENV === 'development' ? error.message : null
+    });
   }
 };
 
